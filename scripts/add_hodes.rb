@@ -56,7 +56,7 @@ nodes.each do |node|
     groupid = zbx.group_map[group]
     my_groups << { "groupid" => groupid }
     # insure group exists, creat if needed.
-    zbx.add_hostgroup(group) unless zbx.group_map.keys.include?(groups)
+    zbx.add_hostgroup(group) unless zbx.group_map.keys.include?(group)
   end
 
   # It also would have to be linked to following templates:
