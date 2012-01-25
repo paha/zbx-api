@@ -32,6 +32,10 @@ module Lvp
       # FIXME: authenticating here. bad
       creds = self.creds
       self.auth(creds["zabbix"]["user"], creds["zabbix"]["passwd"])
+      
+      # Also will polupate here the tempaltes and groups lists
+      self.get_groups
+      self.get_templates
     end
 
     # Creates json request body
@@ -99,9 +103,14 @@ module Lvp
 
     # Adding host, based on Chef node object.
     # identifying pop, and roles should be happening elsewhare.
-    def add_host_chef(node, group_ids=[], template_ids=[])
+    def host_add_chef(node, group_ids=[], template_ids=[], action="create")
       name = node.fqdn
-      return "The node #{name} already is in zabbix." if self.exists?(name)
+      if self.exists?(name)
+        return "The node #{name} already is in zabbix." if action == "create"
+      else
+        return "You are running an update on the node that doesn't exist." if action == "update"
+      end
+
       # or node.ip ?
       ip = Resolv.getaddress(name)
     
@@ -122,16 +131,20 @@ module Lvp
           "os" => node.lsb.description,
           "devicetype" => node.dmi.chassis.manufacturer,
           "macaddress" => node.macaddress,
-          "hardware"  => node.cpu.total + " x " + node.cpu["0"].model_name + ", RAM: " + node.memory.total 
-        }
-        "profile_ext" = {
+          "hardware"  => node.cpu.total.to_s + " x " + node.cpu["0"].model_name + ", RAM: " + node.memory.total 
+        },
+        "profile_ext" => {
+          "device_os_short" => node.os,
           "device_hw_arch" => node.kernel.machine,
-          "device_chassis" => node.chassis.oem_information
+          "device_chassis" => node.dmi.chassis.oem_information
         }
       }
 
       puts "Adding node: #{name}" if DEBUG 
-      body_json = req_body("host.create", params)
+      
+      params["hostid"] = self.host_get_id(name) if action == "update"
+      method = "host." + action
+      body_json = req_body(method, params)
       return JSON.parse(api_request(body_json).body)
     end
 
@@ -141,7 +154,7 @@ module Lvp
     # FIXME: search wildcard is not working...
     # all hosts that bellong to a tempalte id - self.get_host(10063,"templateids")
     # all hosts in a hostgroup id - self.get_host(16,"groupids") 
-    def get_host(str,type="host")
+    def host_get(str,type="host")
       case type
       when "host"
         params = {
@@ -169,7 +182,7 @@ module Lvp
     end
 
     # add an empty tempalte, we will get some complexity a bit later
-    def add_template(name)
+    def template_add(name)
       params = {
         "host" => name,
         "groups" => [ {"groupid" => self.group_map["Templates_llnw"]} ]
@@ -182,10 +195,26 @@ module Lvp
     end
 
     # add a hostgroup
-    def add_hostgroup(name)
+    def hostgroup_add(name)
       puts "Adding hostgroup: #{name}" if DEBUG 
       body_json = req_body("hostgroup.create", {"name" => name})
       return JSON.parse(api_request(body_json).body)["result"]
+    end
+
+    # Delete hosts.
+    # Expectiing an array with host ids, but wil take a single id
+    def host_delete(ids)
+      if ids.kind_of?(Array)
+        body_json = req_body("host.delete", ids)
+      else
+        body_json = req_body("host.delete", [{"hostid" => ids}])
+      end
+      return JSON.parse(api_request(body_json).body)["result"]
+    end
+
+    def host_get_id(name)
+      body_json = req_body("host.get", { "filter" => { "host" => name}})
+      return JSON.parse(api_request(body_json).body)["result"].first["hostid"]
     end
 
   end # Lvp::Zbx class
