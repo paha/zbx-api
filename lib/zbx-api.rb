@@ -100,24 +100,12 @@ module Lvp
     # Adding host, based on Chef node object.
     # identifying pop, and roles should be happening elsewhare.
     def add_host_chef(node, group_ids=[], template_ids=[])
-      name = node.name
+      name = node.fqdn
       return "The node #{name} already is in zabbix." if self.exists?(name)
       # or node.ip ?
       ip = Resolv.getaddress(name)
     
-      # @group_map = get_groups if self.group_map.nil?
-      # @template_map = get_templates if self.template_map.nil?
-
-      # pop = name.split(".")[1]
-      # env = node.chef_environment
-      # group_ids << {"groupid" => @group_map["#{pop}_#{env}"]}
-      # node.roles.each { |role| template_ids << {"templateid" => @template_map["template_#{role}"]} }
-      # pretend we got roles
-      # template_ids << {"templateid" => @template_map["template_linux_base"]}
-      
-      # get the environment
       # TODO: generate params separatly
-      # TODO: generate extended node params for inventory, all the data is in chef node object
       params = {
         "host"  => name,
         "dns"   => name,
@@ -125,9 +113,23 @@ module Lvp
         "port"  => 10050,
         "useip" => 0,
         "groups" => group_ids,
-        "templates" => template_ids
+        "templates" => template_ids,
+        "profile" => {
+          "name" => name,
+          "location" => node.fqdn.split(".")[1].upcase,
+          "serialno" => node.dmi.base_board.serial_number,
+          "software" => node.os_version,
+          "os" => node.lsb.description,
+          "devicetype" => node.dmi.chassis.manufacturer,
+          "macaddress" => node.macaddress,
+          "hardware"  => node.cpu.total + " x " + node.cpu["0"].model_name + ", RAM: " + node.memory.total 
+        }
+        "profile_ext" = {
+          "device_hw_arch" => node.kernel.machine,
+          "device_chassis" => node.chassis.oem_information
+        }
       }
-      
+
       puts "Adding node: #{name}" if DEBUG 
       body_json = req_body("host.create", params)
       return JSON.parse(api_request(body_json).body)
@@ -186,6 +188,6 @@ module Lvp
       return JSON.parse(api_request(body_json).body)["result"]
     end
 
-  end
+  end # Lvp::Zbx class
                                                                             
-end
+end # Lvp
