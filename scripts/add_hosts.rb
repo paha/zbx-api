@@ -25,14 +25,13 @@ nodes = api.get_rest("search/node")["rows"]
 puts "Got #{nodes.size} nodes. #{Time.now}"
 
 # Will add nodes only from specific environments:
-# supported_env = [ "production", "staging", "dev" ]
-supported_env = [ "staging", "dev" ]
+supported_env = [ "production", "staging", "dev" ]
 # Few roles to ignore:
 role_exceptions = [ "monitorable", "cloudkick" ]
 
 nodes.each do |node|
   next unless supported_env.include?(node.chef_environment)
-  puts node.name # debug
+  # puts node.name # debug
 
   # The node would have to be in folowing groups:
   # ** if env is production do not append it
@@ -66,7 +65,7 @@ nodes.each do |node|
     template = "template_" + role
     zbx.template_add(template) unless zbx.template_map.keys.include?(template)
     id = zbx.template_map[template]
-    my_templates << { "tempalteid" => id }
+    my_templates << { "templateid" => id }
     # puts template # debug
   end
 
