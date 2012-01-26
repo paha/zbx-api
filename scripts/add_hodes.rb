@@ -1,7 +1,8 @@
 #!/usr/bin/env ruby
 #
-# Get all nodes from chef, and add them to zabbix with appropriate hostgroups and templates.
-#
+# Get all nodes from chef, 
+# Based on roles generate a list of templates and hostgroups for each node
+# Create/Update node.
 #
 
 $: << 'lib'
@@ -9,9 +10,6 @@ require "zbx-api.rb"
 require 'chef'                                                                  
 
 zbx = Lvp::Zbx.new
-# Get a list of existing Zabbix hostgroups and tempaltes:
-zbx.get_groups
-zbx.get_templates
 
 # Obtain Chef nodes:
 creds = zbx.creds
@@ -27,7 +25,8 @@ nodes = api.get_rest("search/node")["rows"]
 puts "Got #{nodes.size} nodes. #{Time.now}"
 
 # Will add nodes only from specific environments:
-supported_env = [ "production", "staging", "dev" ]
+# supported_env = [ "production", "staging", "dev" ]
+supported_env = [ "staging", "dev" ]
 # Few roles to ignore:
 role_exceptions = [ "monitorable", "cloudkick" ]
 
@@ -56,7 +55,7 @@ nodes.each do |node|
     groupid = zbx.group_map[group]
     my_groups << { "groupid" => groupid }
     # insure group exists, creat if needed.
-    zbx.add_hostgroup(group) unless zbx.group_map.keys.include?(group)
+    zbx.hostgroup_add(group) unless zbx.group_map.keys.include?(group)
   end
 
   # It also would have to be linked to following templates:
@@ -65,18 +64,17 @@ nodes.each do |node|
   node.roles.each do |role|
     next if role_exceptions.include?(role) or supported_env.include?(role)
     template = "template_" + role
-    zbx.add_template(template) unless zbx.template_map.keys.include?(template)
+    zbx.template_add(template) unless zbx.template_map.keys.include?(template)
     id = zbx.template_map[template]
     my_templates << { "tempalteid" => id }
     # puts template # debug
   end
 
-  # my_templates.each do |template_id|
-    # template = zbx.template_map.index(template_id["tempalteid"].to_s)
-  # end
-
-  # Here we go, Create node
-  # This should be rather update.
-  zbx.add_host_chef(node,my_groups,my_templates)
+  # here we go
+  if zbx.exists?(node.name)
+    zbx.host_add_chef(node,my_groups,my_templates,"update")
+  else
+    zbx.host_add_chef(node,my_groups,my_templates)
+  end
   
 end
