@@ -28,6 +28,7 @@ module Lvp
       @id   = 0
       @auth = nil
       @url  = "https://#{url}/api_jsonrpc.php"
+      @template_group = "Templates_LVP"
 
       # FIXME: authenticating here. bad
       creds = self.creds
@@ -102,7 +103,6 @@ module Lvp
     end
 
     # Adding host, based on Chef node object.
-    # identifying pop, and roles should be happening elsewhare.
     def host_add_chef(node, group_ids=[], template_ids=[], action="create")
       name = node.fqdn
       if self.exists?(name)
@@ -131,7 +131,7 @@ module Lvp
           "os" => node.lsb.description,
           "devicetype" => node.dmi.chassis.manufacturer,
           "macaddress" => node.macaddress,
-          "hardware"  => node.cpu.total.to_s + " x " + node.cpu["0"].model_name + ", RAM: " + node.memory.total 
+          "hardware"  => (node.cpu.total.to_s + " x " + node.cpu["0"].model_name + ", RAM: " + node.memory.total) 
         },
         "profile_ext" => {
           "device_os_short" => node.os,
@@ -144,6 +144,7 @@ module Lvp
       
       params["hostid"] = self.host_get_id(name) if action == "update"
       method = "host." + action
+      
       body_json = req_body(method, params)
       return JSON.parse(api_request(body_json).body)
     end
@@ -185,7 +186,7 @@ module Lvp
     def template_add(name)
       params = {
         "host" => name,
-        "groups" => [ {"groupid" => self.group_map["Templates_llnw"]} ]
+        "groups" => [ {"groupid" => self.group_map[@template_group]} ]
       }
       
       puts "Adding template: #{name}" if DEBUG 
