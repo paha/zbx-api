@@ -140,7 +140,7 @@ module Lvp
         }
       }
 
-      puts "Adding node: #{name}" if DEBUG 
+      puts "#{action.capitalize}d node: #{name}" if DEBUG 
       
       params["hostid"] = self.host_get_id(name) if action == "update"
       method = "host." + action
